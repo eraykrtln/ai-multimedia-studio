@@ -4,61 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Multimedia Studio PRO</title>
+    
     <script type="module">
         import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
         window.GradioClient = Client;
     </script>
+
     <style>
-        body { background: #0f0f0f; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: #1a1a1a; padding: 30px; border-radius: 20px; width: 100%; max-width: 450px; border: 1px solid #333; text-align: center; }
-        h2 { color: #007bff; }
-        textarea { width: 100%; background: #252525; color: white; border: 1px solid #444; padding: 15px; border-radius: 10px; box-sizing: border-box; resize: none; margin-bottom: 15px; }
-        button { background: #007bff; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        button:disabled { background: #444; }
-        #status { margin-top: 15px; font-size: 14px; color: #888; }
-        audio { width: 100%; margin-top: 20px; display: none; }
+        :root { --primary: #007bff; --bg: #0f0f0f; --card: #1a1a1a; --text: #e0e0e0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { background: var(--card); padding: 30px; border-radius: 20px; width: 100%; max-width: 450px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.6); text-align: center; }
+        h2 { color: var(--primary); margin-bottom: 5px; }
+        p { color: #888; font-size: 14px; margin-bottom: 25px; }
+        textarea { width: 100%; background: #252525; color: white; border: 1px solid #444; padding: 15px; border-radius: 12px; box-sizing: border-box; resize: none; margin-bottom: 15px; font-size: 16px; outline: none; transition: 0.3s; }
+        textarea:focus { border-color: var(--primary); }
+        button { background: var(--primary); color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3); }
+        button:hover { background: #0056b3; transform: translateY(-2px); }
+        button:disabled { background: #444; cursor: not-allowed; transform: none; box-shadow: none; }
+        #status { margin-top: 20px; font-size: 14px; font-family: monospace; min-height: 20px; }
+        audio { width: 100%; margin-top: 25px; border-radius: 30px; display: none; }
+        .loader { color: var(--primary); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>AI Studio PRO</h2>
-    <textarea id="ttsInput" rows="4" placeholder="Metni buraya yazın..."></textarea>
-    <button id="actionBtn" onclick="processAI()">Sesi Üret</button>
-    <div id="status">Sistem hazır.</div>
+    <p>Gelişmiş Ses ve Video Üretim Merkezi</p>
+    
+    <textarea id="ttsInput" rows="4" placeholder="Okunacak metni buraya yazın..."></textarea>
+    
+    <button id="actionBtn" onclick="processAI()">Sesi Üret ve Oynat</button>
+    
+    <div id="status">Sistem hazır ✅</div>
+    
     <audio id="audioPlayer" controls></audio>
 </div>
 
 <script>
     async function processAI() {
-        const text = document.getElementById('ttsInput').value;
+        const textInput = document.getElementById('ttsInput');
         const status = document.getElementById('status');
         const btn = document.getElementById('actionBtn');
         const player = document.getElementById('audioPlayer');
 
-        if (!text) return alert("Metin boş olamaz!");
+        const text = textInput.value.trim();
+        if (!text) {
+            alert("Lütfen bir metin girin!");
+            return;
+        }
 
+        // Arayüzü güncelle
         btn.disabled = true;
-        status.innerText = "⏳ Yapay Zeka ile bağlantı kuruluyor...";
+        player.style.display = "none";
+        status.innerHTML = '<span class="loader">⏳ Yapay Zeka bağlanıyor...</span>';
 
         try {
-            // Gradio Client ile bağlan (405 ve CORS hatalarını bu çözer)
+            // Gradio Client Bağlantısı
+            // NOT: Kullanıcı adının ve Space isminin doğruluğunu teyit edin
             const client = await window.GradioClient.connect("eraykrtln/ai-multimedia-studio");
             
-            const result = await client.predict("/predict", { 
-                text: text 
-            });
-
-            // Gelen sonucu URL'ye çevir
-            const audioUrl = result.data[0].url;
+            status.innerHTML = '<span class="loader">🎙️ Ses dosyası oluşturuluyor...</span>';
             
-            player.src = audioUrl;
-            player.style.display = "block";
-            status.innerText = "✅ Ses başarıyla üretildi!";
-            player.play();
+            // API'ye veriyi liste olarak gönderiyoruz (Gradio 6 uyumu)
+            const result = await client.predict("/predict", [ text ]);
+
+            if (result && result.data && result.data[0]) {
+                const audioUrl = result.data[0].url;
+                
+                player.src = audioUrl;
+                player.style.display = "block";
+                status.style.color = "#00ff00";
+                status.innerText = "✅ Ses başarıyla üretildi!";
+                
+                // Otomatik oynatmayı dene
+                player.play().catch(e => console.log("Otomatik oynatma tarayıcı tarafından engellendi, lütfen oynat tuşuna basın."));
+            } else {
+                throw new Error("Sunucudan veri alınamadı.");
+            }
 
         } catch (err) {
-            console.error(err);
+            console.error("Hata Detayı:", err);
+            status.style.color = "#ff4444";
             status.innerText = "❌ Hata: " + err.message;
         } finally {
             btn.disabled = false;
