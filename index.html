@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Multimedia Studio PRO</title>
+    <style>
+        body { background: #0f0f0f; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: #1a1a1a; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 500px; border: 1px solid #333; }
+        h2 { color: #007bff; margin-bottom: 20px; text-align: center; }
+        textarea { width: 100%; background: #252525; color: white; border: 1px solid #444; padding: 15px; border-radius: 10px; box-sizing: border-box; resize: none; margin-bottom: 15px; font-size: 15px; }
+        button { background: #007bff; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; }
+        button:hover { background: #0056b3; transform: translateY(-2px); }
+        button:disabled { background: #444; cursor: not-allowed; }
+        #status { margin-top: 20px; font-family: monospace; font-size: 13px; color: #888; text-align: center; }
+        audio { width: 100%; margin-top: 20px; border-radius: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>AI Studio Desktop</h2>
+    <textarea id="ttsInput" rows="4" placeholder="Seslendirilecek metni buraya yazın..."></textarea>
+    <button id="actionBtn" onclick="processAI()">Sesi Üret</button>
+    
+    <div id="status">Sistem hazır.</div>
+    <audio id="audioPlayer" controls></audio>
+</div>
+
+<script>
+    async function processAI() {
+        const text = document.getElementById('ttsInput').value;
+        const status = document.getElementById('status');
+        const btn = document.getElementById('actionBtn');
+        const player = document.getElementById('audioPlayer');
+
+        if (!text) return alert("Metin boş olamaz!");
+
+        btn.disabled = true;
+        status.innerText = "⏳ Sunucuya bağlanılıyor...";
+        player.style.display = "none";
+
+        try {
+            // Gradio API Çağrısı
+            const response = await fetch("https://eraykrtln-ai-multimedia-studio.hf.space/api/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ data: [text] })
+            });
+
+            if (!response.ok) throw new Error(`Sunucu Hatası: ${response.status}`);
+
+            const result = await response.json();
+            
+            // Gradio 5/6 dosya yapısı kontrolü
+            const fileData = result.data[0];
+            const fileName = typeof fileData === 'object' ? fileData.name : fileData;
+            
+            if (!fileName) throw new Error("Ses dosyası oluşturulamadı.");
+
+            const audioUrl = `https://eraykrtln-ai-multimedia-studio.hf.space/file=${fileName}`;
+            
+            player.src = audioUrl;
+            player.style.display = "block";
+            status.innerText = "✅ Başarılı! Ses hazır.";
+            player.play();
+
+        } catch (err) {
+            console.error("Detaylı Hata:", err);
+            status.innerText = "❌ Hata: " + err.message;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
