@@ -1,32 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Multimedia Studio PRO</title>
+    
+    <script type="module">
+        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+        window.GradioClient = Client;
+    </script>
+
+    <style>
+        :root { --primary: #007bff; --bg: #0d0d0d; --card: #1a1a1a; --text: #f0f0f0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { background: var(--card); padding: 30px; border-radius: 24px; width: 100%; max-width: 550px; border: 1px solid #333; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.7); }
+        h2 { color: var(--primary); margin-bottom: 5px; font-weight: 800; }
+        p { color: #888; font-size: 14px; margin-bottom: 20px; }
+        
+        textarea { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 15px; border-radius: 14px; box-sizing: border-box; resize: none; margin-bottom: 15px; font-size: 16px; outline: none; }
+        
+        .btn-group { display: flex; gap: 10px; flex-direction: column; }
+        button { background: var(--primary); color: white; border: none; padding: 16px; width: 100%; border-radius: 14px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        button:hover { background: #0069d9; }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; }
+        
+        #status { margin-top: 20px; font-size: 13px; font-family: monospace; color: #aaa; }
+        
+        .result-area { margin-top: 25px; display: none; border-top: 1px solid #333; padding-top: 20px; }
+        .media-item { width: 100%; border-radius: 16px; margin-top: 15px; border: 1px solid #444; background: #000; }
+        audio { width: 100%; margin-top: 10px; }
+        video { display: none; }
+        img { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>AI Studio PRO</h2>
+    <p>Ses, Görsel ve Video Stüdyosu</p>
+    
+    <textarea id="userInput" rows="3" placeholder="Sahneryoyu yazın (Örn: Sisli havada koşan kurt)"></textarea>
+    
+    <div class="btn-group">
+        <button id="mainBtn" onclick="generateAI()">Sihri Başlat ✨</button>
+    </div>
+    
+    <div id="status">Sistem hazır ✅</div>
+    
+    <div id="resultArea" class="result-area">
+        <audio id="audioOut" class="media-item" controls></audio>
+        <img id="imageOut" class="media-item" alt="AI Visual">
+        <video id="videoOut" class="media-item" controls></video>
+    </div>
+</div>
+
 <script>
     async function generateAI() {
         const text = document.getElementById('userInput').value.trim();
         const status = document.getElementById('status');
+        const btn = document.getElementById('mainBtn');
         const resultArea = document.getElementById('resultArea');
         
-        status.innerText = "⏳ Video ve Ses motorları hazırlanıyor...";
+        const audio = document.getElementById('audioOut');
+        const image = document.getElementById('imageOut');
+        const video = document.getElementById('videoOut');
+
+        if (!text) return alert("Lütfen bir metin girin!");
+
+        btn.disabled = true;
+        status.innerText = "⏳ Yapay Zeka motorları çalışıyor (Bu işlem 1 dakikaya kadar sürebilir)...";
+        resultArea.style.display = "none";
 
         try {
+            // Hugging Face Space bağlantısı
             const client = await window.GradioClient.connect("eraykrtln/ai-multimedia-studio");
+            
+            // API'ye metin ve (varsa) görsel gönderiyoruz
+            // Biz şimdilik görseli null gönderiyoruz, app.py kendi üretecek
             const result = await client.predict("/predict", [ text, null ]);
 
-            // SES
-            if (result.data[0]) document.getElementById('audioOut').src = result.data[0].url;
-            
-            // GÖRSEL
-            if (result.data[1]) document.getElementById('imageOut').src = result.data[1].url;
+            console.log("Stüdyo Yanıtı:", result);
 
-            // VİDEO (Eğer Hugging Face GPU sağlarsa)
-            if (result.data[2]) {
-                const videoElement = document.getElementById('videoOut');
-                videoElement.src = result.data[2].url;
-                videoElement.style.display = "block";
+            if (result.data) {
+                // 1. SES (Data 0)
+                if (result.data[0]) {
+                    audio.src = result.data[0].url;
+                    audio.play().catch(e => console.log("Oto-oynatma engellendi."));
+                }
+                
+                // 2. GÖRSEL (Data 1)
+                if (result.data[1]) {
+                    image.src = result.data[1].url;
+                    image.style.display = "block";
+                }
+
+                // 3. VİDEO (Data 2)
+                if (result.data[2]) {
+                    video.src = result.data[2].url;
+                    video.style.display = "block";
+                }
+
+                resultArea.style.display = "block";
+                status.innerText = "✅ Her şey hazır!";
             }
 
-            resultArea.style.display = "block";
-            status.innerText = "✅ Stüdyo Çıktısı Hazır!";
         } catch (err) {
+            console.error("Hata Detayı:", err);
             status.innerText = "❌ Hata: " + err.message;
+        } finally {
+            btn.disabled = false;
         }
     }
 </script>
+
+</body>
+</html>
