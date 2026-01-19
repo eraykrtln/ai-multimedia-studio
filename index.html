@@ -4,19 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Multimedia Studio PRO</title>
+    
     <script type="module">
         import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
         window.GradioClient = Client;
     </script>
+
     <style>
-        :root { --primary: #007bff; --bg: #0b0b0b; --card: #161616; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .container { background: var(--card); padding: 30px; border-radius: 20px; width: 100%; max-width: 600px; border: 1px solid #333; text-align: center; }
-        textarea { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 16px; }
-        button { background: var(--primary); color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 18px; }
-        #status { margin-top: 20px; font-family: monospace; color: #aaa; }
-        .result-box { margin-top: 25px; display: none; }
-        img { width: 100%; border-radius: 12px; margin-top: 15px; border: 1px solid #444; }
+        :root { --primary: #007bff; --bg: #0d0d0d; --card: #1a1a1a; --text: #f0f0f0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { background: var(--card); padding: 30px; border-radius: 24px; width: 100%; max-width: 500px; border: 1px solid #333; box-shadow: 0 20px 50px rgba(0,0,0,0.7); text-align: center; }
+        h2 { color: var(--primary); margin-bottom: 8px; font-weight: 800; letter-spacing: -0.5px; }
+        p { color: #888; font-size: 14px; margin-bottom: 25px; }
+        
+        textarea { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 15px; border-radius: 14px; box-sizing: border-box; resize: none; margin-bottom: 15px; font-size: 16px; outline: none; transition: 0.3s; }
+        textarea:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(0, 123, 255, 0.2); }
+        
+        button { background: var(--primary); color: white; border: none; padding: 18px; width: 100%; border-radius: 14px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        button:hover { background: #0069d9; transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; transform: none; }
+        
+        #status { margin-top: 20px; font-size: 13px; font-family: 'Courier New', monospace; color: #aaa; min-height: 20px; }
+        
+        .result-area { margin-top: 25px; display: none; border-top: 1px solid #333; padding-top: 20px; }
+        img { width: 100%; border-radius: 16px; margin-top: 15px; border: 1px solid #444; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
         audio { width: 100%; margin-top: 15px; }
     </style>
 </head>
@@ -24,46 +36,77 @@
 
 <div class="container">
     <h2>AI Studio PRO</h2>
-    <textarea id="userInput" rows="3" placeholder="Örn: Karlı dağlarda uçan bir kartal..."></textarea>
-    <button id="mainBtn" onclick="startGeneration()">Sihri Başlat ✨</button>
-    <div id="status">Hazır ✅</div>
-
-    <div id="resultBox" class="result-box">
+    <p>Ses ve Görsel Üretim Sistemi</p>
+    
+    <textarea id="userInput" rows="3" placeholder="Örn: Yağmurlu bir gecede siberpunk şehir..."></textarea>
+    
+    <button id="mainBtn" onclick="generateAI()">Sihri Başlat ✨</button>
+    
+    <div id="status">Sistem hazır ✅</div>
+    
+    <div id="resultArea" class="result-area">
         <audio id="audioOut" controls></audio>
-        <img id="imageOut" alt="AI Visual">
+        <div id="imageContainer">
+            <img id="imageOut" src="" alt="Yapay Zeka Görseli">
+        </div>
     </div>
 </div>
 
 <script>
-    async function startGeneration() {
-        const text = document.getElementById('userInput').value;
+    async function generateAI() {
+        const text = document.getElementById('userInput').value.trim();
         const status = document.getElementById('status');
         const btn = document.getElementById('mainBtn');
-        const resultBox = document.getElementById('resultBox');
+        const resultArea = document.getElementById('resultArea');
+        const audio = document.getElementById('audioOut');
+        const image = document.getElementById('imageOut');
 
-        if(!text) return alert("Metin girin!");
+        if (!text) {
+            alert("Lütfen bir şeyler yazın!");
+            return;
+        }
 
         btn.disabled = true;
-        status.innerText = "⏳ Görsel ve Ses hazırlanıyor (30-40 sn sürebilir)...";
+        status.innerText = "⏳ Yapay Zeka motorları çalışıyor...";
+        resultArea.style.display = "none";
 
         try {
+            // Gradio Backend Bağlantısı
             const client = await window.GradioClient.connect("eraykrtln/ai-multimedia-studio");
-            const result = await client.predict("/generate_all", [text]);
-
-            // result.data[0] -> Ses URL, result.data[1] -> Görsel URL
-            document.getElementById('audioOut').src = result.data[0].url;
-            document.getElementById('imageOut').src = result.data[1].url;
             
-            resultBox.style.display = "block";
-            status.innerText = "✅ Başarıyla tamamlandı!";
-            document.getElementById('audioOut').play();
+            // "/predict" endpoint'ine veriyi gönderiyoruz
+            const result = await client.predict("/predict", [ text ]);
+
+            console.log("Gelen Veri:", result);
+
+            // Veri yapısı kontrolü (Gradio 6 için)
+            if (result.data) {
+                // 1. SES (Data index 0)
+                if (result.data[0] && result.data[0].url) {
+                    audio.src = result.data[0].url;
+                }
+                
+                // 2. GÖRSEL (Data index 1)
+                if (result.data[1] && result.data[1].url) {
+                    image.src = result.data[1].url;
+                    image.style.display = "block";
+                } else {
+                    image.style.display = "none";
+                }
+
+                resultArea.style.display = "block";
+                status.innerText = "✅ Başarıyla üretildi!";
+                audio.play().catch(e => console.log("Oynatma başlatılamadı."));
+            }
 
         } catch (err) {
+            console.error("Hata:", err);
             status.innerText = "❌ Hata: " + err.message;
         } finally {
             btn.disabled = false;
         }
     }
 </script>
+
 </body>
 </html>
